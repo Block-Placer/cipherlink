@@ -6,42 +6,82 @@
     <title>CipherLink | Static Secure Sharing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        body { background: #0f172a; color: #f8fafc; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        body { background: #0f172a; color: #f8fafc; font-family: sans-serif; }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6">
-    <div id="app" class="w-full max-w-lg glass p-8 rounded-2xl shadow-2xl">
-        <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">CipherLink</h1>
-        <p class="text-slate-400 mb-8 text-sm">Zero-knowledge encryption. The server never sees your data.</p>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="w-full max-w-lg glass p-8 rounded-3xl shadow-2xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">CipherLink</h1>
+            <p class="text-slate-400 text-xs tracking-widest uppercase mt-1">Encrypted Static Sharing</p>
+        </header>
 
         <div id="create-mode">
-            <label class="block mb-2 text-sm font-medium">Secret Message</label>
-            <textarea id="msg" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Enter your secret here..."></textarea>
+            <div class="mb-4">
+                <label class="block mb-2 text-sm font-medium text-slate-300">Secret Message</label>
+                <textarea id="msg" rows="4" maxlength="1500" oninput="updateCharCount(this)"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mb-1 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600" 
+                    placeholder="Type your sensitive data here..."></textarea>
+                <p id="char-count" class="text-[10px] text-slate-500 text-right">0 / 1500 characters</p>
+            </div>
             
-            <label class="block mb-2 text-sm font-medium">Passphrase</label>
-            <input type="password" id="pass" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Set a strong password">
+            <div class="mb-6">
+                <label class="block mb-2 text-sm font-medium text-slate-300">Password</label>
+                <div class="relative">
+                    <input type="password" id="pass" oninput="checkStrength(this.value)" 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 pr-12 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                        placeholder="Choose a strong password">
+                    <button type="button" onclick="togglePass('pass', 'eye-icon-create')" class="absolute right-4 top-4 text-slate-500 hover:text-white">
+                        <svg id="eye-icon-create" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </div>
+                <div class="w-full h-1 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                    <div id="strength-bar" class="h-full w-0 transition-all duration-500"></div>
+                </div>
+            </div>
             
-            <button onclick="handleEncrypt()" class="w-full bg-blue-600 hover:bg-blue-500 transition-colors font-bold py-3 rounded-lg">Generate Secure Link</button>
+            <button onclick="handleEncrypt()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98]">
+                Generate Secure Link
+            </button>
             
-            <div id="result-area" class="mt-6 hidden">
-                <p class="text-xs text-emerald-400 mb-2 font-mono">LINK GENERATED:</p>
-                <div class="flex gap-2">
-                    <input type="text" id="share-url" readonly class="flex-1 bg-black p-2 text-xs rounded border border-slate-700">
-                    <button onclick="copyLink()" class="bg-slate-700 px-3 rounded text-sm">Copy</button>
+            <div id="result-area" class="mt-8 hidden animate-fade-in">
+                <div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <p class="text-[10px] text-emerald-400 font-bold tracking-tighter mb-2 uppercase text-center">Your Encrypted Link is Ready</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-url" readonly class="flex-1 bg-black/40 p-2 text-xs rounded-lg border border-slate-700 font-mono text-emerald-200">
+                        <button onclick="copyLink()" class="bg-emerald-600 hover:bg-emerald-500 px-4 rounded-lg text-xs font-bold transition-colors">Copy</button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div id="decrypt-mode" class="hidden">
-            <p class="mb-4 text-emerald-400 font-medium italic">You received an encrypted message.</p>
-            <label class="block mb-2 text-sm font-medium">Enter Passphrase</label>
-            <input type="password" id="decrypt-pass" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-emerald-500 outline-none">
-            <button onclick="handleDecrypt()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3 rounded-lg">Unlock Message</button>
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 rounded-full mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-emerald-500" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <h2 class="text-xl font-bold">Secure Message Received</h2>
+                <p class="text-slate-400 text-sm">Enter the password to unlock the contents.</p>
+            </div>
+
+            <div class="relative mb-6">
+                <input type="password" id="decrypt-pass" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 pr-12 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter password">
+                <button type="button" onclick="togglePass('decrypt-pass', 'eye-icon-decrypt')" class="absolute right-4 top-4 text-slate-500 hover:text-white">
+                    <svg id="eye-icon-decrypt" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            </div>
             
-            <div id="secret-output" class="mt-6 hidden">
-                <label class="block mb-2 text-xs text-slate-500 uppercase">Decrypted Secret:</label>
-                <div id="decrypted-text" class="p-4 bg-slate-800 rounded-lg border border-emerald-500/30 whitespace-pre-wrap"></div>
+            <button onclick="handleDecrypt()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98]">
+                Unlock Message
+            </button>
+            
+            <div id="secret-output" class="mt-8 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Secret Contents</label>
+                    <button onclick="location.href=location.pathname" class="text-[10px] text-red-400 hover:underline">Destroy View</button>
+                </div>
+                <div id="decrypted-text" class="p-5 bg-slate-800/50 rounded-2xl border border-emerald-500/30 whitespace-pre-wrap text-emerald-50 font-mono text-sm leading-relaxed"></div>
             </div>
         </div>
     </div>
