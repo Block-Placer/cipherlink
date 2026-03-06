@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CipherLink | Static Secure Sharing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        body { background: #0f172a; color: #f8fafc; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+    <div id="app" class="w-full max-w-lg glass p-8 rounded-2xl shadow-2xl">
+        <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">CipherLink</h1>
+        <p class="text-slate-400 mb-8 text-sm">Zero-knowledge encryption. The server never sees your data.</p>
+
+        <div id="create-mode">
+            <label class="block mb-2 text-sm font-medium">Secret Message</label>
+            <textarea id="msg" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Enter your secret here..."></textarea>
+            
+            <label class="block mb-2 text-sm font-medium">Passphrase</label>
+            <input type="password" id="pass" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-6 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Set a strong password">
+            
+            <button onclick="handleEncrypt()" class="w-full bg-blue-600 hover:bg-blue-500 transition-colors font-bold py-3 rounded-lg">Generate Secure Link</button>
+            
+            <div id="result-area" class="mt-6 hidden">
+                <p class="text-xs text-emerald-400 mb-2 font-mono">LINK GENERATED:</p>
+                <div class="flex gap-2">
+                    <input type="text" id="share-url" readonly class="flex-1 bg-black p-2 text-xs rounded border border-slate-700">
+                    <button onclick="copyLink()" class="bg-slate-700 px-3 rounded text-sm">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="decrypt-mode" class="hidden">
+            <p class="mb-4 text-emerald-400 font-medium italic">You received an encrypted message.</p>
+            <label class="block mb-2 text-sm font-medium">Enter Passphrase</label>
+            <input type="password" id="decrypt-pass" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-emerald-500 outline-none">
+            <button onclick="handleDecrypt()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3 rounded-lg">Unlock Message</button>
+            
+            <div id="secret-output" class="mt-6 hidden">
+                <label class="block mb-2 text-xs text-slate-500 uppercase">Decrypted Secret:</label>
+                <div id="decrypted-text" class="p-4 bg-slate-800 rounded-lg border border-emerald-500/30 whitespace-pre-wrap"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
