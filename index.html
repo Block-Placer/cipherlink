@@ -1,91 +1,591 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CipherLink | Static Secure Sharing</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        body { background: #0f172a; color: #f8fafc; font-family: sans-serif; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIPHER — AES Message Encryption</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080a0f;
+    --surface: #0e1219;
+    --surface2: #161c26;
+    --border: #1e2a3a;
+    --blue: #5b9cf6;
+    --blue-dim: #3a6ab8;
+    --blue-glow: rgba(91,156,246,0.08);
+    --text: #d8e4f8;
+    --text-muted: #607090;
+    --text-dim: #384058;
+    --danger: #e05060;
+    --success: #3ab87a;
+    --mono: 'Space Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 1rem 4rem;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% -10%, rgba(91,156,246,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 680px;
+  }
+
+  header {
+    padding: 3rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+  }
+
+  .logo-row { display: flex; align-items: center; gap: 14px; margin-bottom: 0.5rem; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+  .logo-icon svg { transform: rotate(-45deg); width: 18px; height: 18px; }
+
+  h1 { font-family: var(--display); font-size: 1.9rem; font-weight: 800; letter-spacing: 0.12em; color: var(--text); }
+
+  .subtitle { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.18em; text-transform: uppercase; margin-left: 50px; }
+
+  .tabs { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 2rem; }
+
+  .tab {
+    flex: 1; padding: 0.65rem 1rem;
+    background: transparent; border: none;
+    color: var(--text-muted); font-family: var(--mono);
+    font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+    border-right: 1px solid var(--border);
+  }
+  .tab:last-child { border-right: none; }
+  .tab:hover { color: var(--text); background: var(--surface); }
+  .tab.active { background: var(--blue-glow); color: var(--blue); border-bottom: 2px solid var(--blue); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .field { margin-bottom: 1.25rem; }
+
+  label { display: block; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; }
+
+  input[type="text"], input[type="password"], textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: var(--mono);
+    font-size: 0.85rem; padding: 0.75rem 1rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s; resize: vertical;
+  }
+  input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+    border-color: var(--blue-dim);
+    box-shadow: 0 0 0 3px rgba(91,156,246,0.09);
+  }
+  textarea { min-height: 120px; line-height: 1.6; }
+
+  .passphrase-wrap { position: relative; }
+  .passphrase-wrap input { padding-right: 3rem; }
+
+  .eye-btn {
+    position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    display: flex; align-items: center; padding: 4px; transition: color 0.2s;
+  }
+  .eye-btn:hover { color: var(--text); }
+
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+
+  .btn {
+    flex: 1; padding: 0.8rem 1.5rem; border-radius: 4px;
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.15em;
+    text-transform: uppercase; cursor: pointer; border: 1px solid;
+    transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: #080a0f; font-weight: 700; }
+  .btn-primary:hover { background: #7ab0fa; border-color: #7ab0fa; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-muted); }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface); }
+
+  .result-box { margin-top: 1.75rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+
+  .result-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .result-label { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+
+  .copy-btn {
+    background: none; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text-muted); font-family: var(--mono); font-size: 0.6rem;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--blue-dim); color: var(--blue); }
+  .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+  .result-content { padding: 1rem; font-size: 0.78rem; line-height: 1.7; word-break: break-all; color: var(--blue); background: var(--bg); min-height: 80px; }
+
+  .share-section { margin-top: 1.25rem; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .share-note { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.7; margin-bottom: 0.75rem; }
+  .share-note span { color: var(--blue); }
+
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.65rem 1.25rem; font-size: 0.72rem; letter-spacing: 0.08em;
+    opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 100; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  .alert { padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.75rem; margin-bottom: 1.25rem; line-height: 1.6; border: 1px solid; }
+  .alert-info { background: rgba(91,156,246,0.06); border-color: rgba(91,156,246,0.25); color: var(--blue-dim); }
+  .alert-success { background: rgba(58,184,122,0.08); border-color: rgba(58,184,122,0.3); color: var(--success); }
+  .alert-error { background: rgba(224,80,96,0.08); border-color: rgba(224,80,96,0.3); color: var(--danger); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  /* ── Unlock screen ── */
+  #unlock-screen {
+    display: none;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    margin-bottom: 2rem;
+  }
+  .unlock-icon {
+    width: 48px; height: 48px; margin: 0 auto 1.25rem;
+    border: 1.5px solid var(--blue-dim);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .unlock-title {
+    font-family: var(--display); font-size: 1.1rem; font-weight: 700;
+    letter-spacing: 0.08em; text-align: center; margin-bottom: 0.4rem;
+  }
+  .unlock-sub {
+    font-size: 0.68rem; color: var(--text-muted); text-align: center;
+    letter-spacing: 0.1em; margin-bottom: 1.5rem; line-height: 1.6;
+  }
+
+  /* Revealed message — rendered in JS, never in HTML source */
+  #revealed-msg {
+    padding: 1.25rem;
+    font-size: 0.92rem;
+    line-height: 1.85;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    word-break: break-word;
+    white-space: pre-wrap;
+    min-height: 80px;
+  }
+
+  .strength-bar { height: 2px; background: var(--surface2); border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+  .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .anim { animation: fadeIn 0.3s ease forwards; }
+
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: center; font-size: 0.62rem; color: var(--text-dim); letter-spacing: 0.1em; line-height: 2; }
+</style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
-    <div id="app" class="w-full max-w-lg glass p-8 rounded-3xl shadow-2xl">
-        <header class="mb-8">
-            <h1 class="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">CipherLink</h1>
-            <p class="text-slate-400 text-xs tracking-widest uppercase mt-1">Encrypted Static Sharing</p>
-        </header>
+<body>
+<div class="noise"></div>
+<div class="wrap">
 
-        <div id="create-mode">
-            <div class="mb-4">
-                <label class="block mb-2 text-sm font-medium text-slate-300">Secret Message</label>
-                <textarea id="msg" rows="4" maxlength="1500" oninput="updateCharCount(this)"
-                    class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mb-1 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600" 
-                    placeholder="Type your sensitive data here..."></textarea>
-                <p id="char-count" class="text-[10px] text-slate-500 text-right">0 / 1500 characters</p>
-            </div>
-            
-            <div class="mb-6">
-                <label class="block mb-2 text-sm font-medium text-slate-300">Password</label>
-                <div class="relative">
-                    <input type="password" id="pass" oninput="checkStrength(this.value)" 
-                        class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 pr-12 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                        placeholder="Choose a strong password">
-                    <button type="button" onclick="togglePass('pass', 'eye-icon-create')" class="absolute right-4 top-4 text-slate-500 hover:text-white">
-                        <svg id="eye-icon-create" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </button>
-                </div>
-                <div class="w-full h-1 bg-slate-800 rounded-full mt-2 overflow-hidden">
-                    <div id="strength-bar" class="h-full w-0 transition-all duration-500"></div>
-                </div>
-            </div>
-            
-            <button onclick="handleEncrypt()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98]">
-                Generate Secure Link
-            </button>
-            
-            <div id="result-area" class="mt-8 hidden animate-fade-in">
-                <div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                    <p class="text-[10px] text-emerald-400 font-bold tracking-tighter mb-2 uppercase text-center">Your Encrypted Link is Ready</p>
-                    <div class="flex gap-2">
-                        <input type="text" id="share-url" readonly class="flex-1 bg-black/40 p-2 text-xs rounded-lg border border-slate-700 font-mono text-emerald-200">
-                        <button onclick="copyLink()" class="bg-emerald-600 hover:bg-emerald-500 px-4 rounded-lg text-xs font-bold transition-colors">Copy</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">
+        <svg viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="3" stroke="#5b9cf6" stroke-width="1.5"/>
+          <path d="M9 2v3M9 13v3M2 9h3M13 9h3" stroke="#5b9cf6" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h1>CIPHER</h1>
+    </div>
+    <div class="subtitle">AES-256 · URL-based encrypted messaging</div>
+  </header>
 
-        <div id="decrypt-mode" class="hidden">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 rounded-full mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-emerald-500" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                </div>
-                <h2 class="text-xl font-bold">Secure Message Received</h2>
-                <p class="text-slate-400 text-sm">Enter the password to unlock the contents.</p>
-            </div>
+  <!-- ══════════════ UNLOCK SCREEN (shown when link is opened) ══════════════ -->
+  <div id="unlock-screen">
+    <div class="unlock-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b9cf6" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+    <div class="unlock-title">Encrypted message</div>
+    <div class="unlock-sub">Enter the passphrase to reveal the message.<br>You should have received it separately.</div>
 
-            <div class="relative mb-6">
-                <input type="password" id="decrypt-pass" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 pr-12 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter password">
-                <button type="button" onclick="togglePass('decrypt-pass', 'eye-icon-decrypt')" class="absolute right-4 top-4 text-slate-500 hover:text-white">
-                    <svg id="eye-icon-decrypt" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                </button>
-            </div>
-            
-            <button onclick="handleDecrypt()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98]">
-                Unlock Message
-            </button>
-            
-            <div id="secret-output" class="mt-8 hidden">
-                <div class="flex items-center justify-between mb-2">
-                    <label class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Secret Contents</label>
-                    <button onclick="location.href=location.pathname" class="text-[10px] text-red-400 hover:underline">Destroy View</button>
-                </div>
-                <div id="decrypted-text" class="p-5 bg-slate-800/50 rounded-2xl border border-emerald-500/30 whitespace-pre-wrap text-emerald-50 font-mono text-sm leading-relaxed"></div>
-            </div>
-        </div>
+    <div class="field">
+      <label>Passphrase</label>
+      <div class="passphrase-wrap">
+        <input type="password" id="unlock-passphrase" placeholder="Enter passphrase…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="eye-btn" onclick="toggleVis('unlock-passphrase', this)" title="Show/hide">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <script src="app.js"></script>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="unlockMessage()">Unlock Message</button>
+    </div>
+
+    <div id="unlock-error" style="display:none; margin-top:1.25rem;" class="alert alert-error">
+      ✗ Wrong passphrase — message could not be decrypted.
+    </div>
+
+    <div id="unlock-success" style="display:none; margin-top:1.5rem;" class="anim">
+      <div class="alert alert-success" style="margin-bottom:1rem;">✓ Decrypted successfully</div>
+      <label>Message</label>
+      <div id="revealed-msg"></div>
+      <div class="btn-row" style="margin-top:1rem;">
+        <button class="btn btn-ghost" onclick="copyRevealed(this)">Copy plaintext</button>
+        <button class="btn btn-ghost" onclick="lockMessage()">Lock again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MAIN TABS (hidden when unlock screen is active) ══════════════ -->
+  <div id="main-ui">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('encrypt')">⬡ Encrypt</button>
+      <button class="tab" onclick="switchTab('decrypt')">⬡ Decrypt</button>
+    </div>
+
+    <!-- ENCRYPT PANEL -->
+    <div id="panel-encrypt" class="panel active">
+      <div class="field">
+        <label>Message</label>
+        <textarea id="enc-message" placeholder="Type your secret message here…"></textarea>
+      </div>
+      <div class="field">
+        <label>Passphrase</label>
+        <div class="passphrase-wrap">
+          <input type="password" id="enc-passphrase" placeholder="Choose a strong passphrase…" oninput="updateStrength()">
+          <button class="eye-btn" onclick="toggleVis('enc-passphrase', this)" title="Show/hide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="encryptMsg()">Encrypt &amp; Generate Link</button>
+        <button class="btn btn-ghost" onclick="clearEncrypt()">Clear</button>
+      </div>
+
+      <div id="encrypt-result" style="display:none;" class="anim">
+        <div class="result-box" style="margin-top:1.75rem;">
+          <div class="result-header">
+            <span class="result-label">Ciphertext</span>
+            <button class="copy-btn" onclick="copyText('cipher-out', this)">Copy</button>
+          </div>
+          <div class="result-content" id="cipher-out"></div>
+        </div>
+
+        <div class="share-section" style="margin-top:1.25rem;">
+          <div class="result-header" style="padding:0 0 0.5rem; background:transparent; border-bottom:none; margin-bottom:0.5rem;">
+            <span class="result-label" style="color:var(--blue);">Share Link</span>
+            <button class="copy-btn" onclick="copyText('share-url', this)">Copy URL</button>
+          </div>
+          <div class="share-note">
+            Only the <span>encrypted ciphertext</span> is in the URL — the passphrase is never included. Share the link freely; send the passphrase separately via a secure channel.
+          </div>
+          <div style="word-break:break-all; font-size:0.7rem; color:var(--text-muted); line-height:1.7;" id="share-url"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DECRYPT PANEL -->
+    <div id="panel-decrypt" class="panel">
+      <div class="field">
+        <label>Ciphertext</label>
+        <textarea id="dec-ciphertext" placeholder="Paste encrypted ciphertext here…"></textarea>
+      </div>
+      <div class="field">
+        <label>Passphrase</label>
+        <div class="passphrase-wrap">
+          <input type="password" id="dec-passphrase" placeholder="Enter the passphrase…">
+          <button class="eye-btn" onclick="toggleVis('dec-passphrase', this)" title="Show/hide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="decryptMsg()">Decrypt Message</button>
+        <button class="btn btn-ghost" onclick="clearDecrypt()">Clear</button>
+      </div>
+
+      <div id="decrypt-result" style="display:none;" class="anim">
+        <div style="height:1px; background:var(--border); margin:2rem 0;"></div>
+        <div class="alert alert-success" style="margin-bottom:1rem;">✓ Decryption successful</div>
+        <label>Decrypted Message</label>
+        <div id="plain-out" style="padding:1rem; font-size:0.9rem; line-height:1.8; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:6px; word-break:break-word; white-space:pre-wrap; min-height:80px;"></div>
+        <div class="btn-row" style="margin-top:1rem;">
+          <button class="btn btn-ghost" onclick="copyText('plain-out', this)">Copy plaintext</button>
+        </div>
+      </div>
+
+      <div id="decrypt-error" style="display:none;" class="alert alert-error">
+        ✗ Decryption failed — wrong passphrase or corrupted ciphertext.
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Encryption performed locally in your browser · AES-256 via CryptoJS<br>
+    Passphrase never transmitted or stored · No data leaves your device
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/*
+ * Security design:
+ *   - URL contains ONLY the base64url-encoded ciphertext (#d=...)
+ *   - Passphrase is NEVER in the URL, never in the DOM, never in any attribute
+ *   - Plaintext is written into the DOM only after successful decryption,
+ *     inside a JS-created text node — never present in the HTML source
+ *   - "Lock again" wipes the text node from the DOM entirely
+ *   - The ciphertext field in the unlock screen also never appears in HTML;
+ *     it lives only in a JS variable
+ */
+
+let _lockedCipher = null; // holds ciphertext in memory only, never in DOM
+
+function toBase64url(s) {
+  return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function fromBase64url(b) {
+  return decodeURIComponent(escape(atob(b.replace(/-/g,'+').replace(/_/g,'/'))));
+}
+
+function aesDecrypt(cipher, pass) {
+  const bytes = CryptoJS.AES.decrypt(cipher, pass);
+  const plain = bytes.toString(CryptoJS.enc.Utf8);
+  if (!plain) throw new Error('bad');
+  return plain;
+}
+
+/* ── unlock screen ── */
+function unlockMessage() {
+  const pass = document.getElementById('unlock-passphrase').value;
+  document.getElementById('unlock-error').style.display = 'none';
+  document.getElementById('unlock-success').style.display = 'none';
+  wipeRevealedNode();
+
+  if (!pass) { showToast('Enter a passphrase.', 'error'); return; }
+  if (!_lockedCipher) { showToast('No message loaded.', 'error'); return; }
+
+  try {
+    const plain = aesDecrypt(_lockedCipher, pass);
+    // Write plaintext as a text node via JS only — never serialised into HTML
+    const node = document.createTextNode(plain);
+    document.getElementById('revealed-msg').appendChild(node);
+    document.getElementById('unlock-success').style.display = 'block';
+    document.getElementById('unlock-success').className = 'anim';
+    // Wipe passphrase from input immediately after use
+    document.getElementById('unlock-passphrase').value = '';
+  } catch(e) {
+    document.getElementById('unlock-error').style.display = 'block';
+    document.getElementById('unlock-passphrase').value = '';
+  }
+}
+
+function lockMessage() {
+  wipeRevealedNode();
+  document.getElementById('unlock-success').style.display = 'none';
+  document.getElementById('unlock-error').style.display = 'none';
+  document.getElementById('unlock-passphrase').value = '';
+}
+
+function wipeRevealedNode() {
+  const el = document.getElementById('revealed-msg');
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function copyRevealed(btn) {
+  const text = document.getElementById('revealed-msg').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ── main tabs ── */
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i===0&&tab==='encrypt')||(i===1&&tab==='decrypt'));
+  });
+  document.getElementById('panel-encrypt').classList.toggle('active', tab==='encrypt');
+  document.getElementById('panel-decrypt').classList.toggle('active', tab==='decrypt');
+}
+
+function toggleVis(id, btn) {
+  const el = document.getElementById(id);
+  const isPass = el.type === 'password';
+  el.type = isPass ? 'text' : 'password';
+  btn.innerHTML = isPass
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+function updateStrength() {
+  const pass = document.getElementById('enc-passphrase').value;
+  const fill = document.getElementById('strength-fill');
+  let s = 0;
+  if (pass.length >= 8) s++;
+  if (pass.length >= 16) s++;
+  if (/[A-Z]/.test(pass)) s++;
+  if (/[0-9]/.test(pass)) s++;
+  if (/[^A-Za-z0-9]/.test(pass)) s++;
+  fill.style.width = ((s/5)*100) + '%';
+  fill.style.background = ['#e05060','#e05060','#3a6ab8','#3a6ab8','#3ab87a','#3ab87a'][s] || '#3ab87a';
+}
+
+function encryptMsg() {
+  const msg  = document.getElementById('enc-message').value.trim();
+  const pass = document.getElementById('enc-passphrase').value;
+  if (!msg)  { showToast('Please enter a message.', 'error'); return; }
+  if (!pass) { showToast('Please enter a passphrase.', 'error'); return; }
+
+  const ciphertext = CryptoJS.AES.encrypt(msg, pass).toString();
+  const blob = toBase64url(ciphertext);
+  const url = `${location.origin}${location.pathname}#d=${blob}`;
+
+  document.getElementById('cipher-out').textContent = ciphertext;
+  document.getElementById('share-url').textContent = url;
+  document.getElementById('encrypt-result').style.display = 'block';
+  document.getElementById('encrypt-result').className = 'anim';
+  showToast('Encrypted successfully!', 'success');
+}
+
+function decryptMsg() {
+  const cipher = document.getElementById('dec-ciphertext').value.trim();
+  const pass   = document.getElementById('dec-passphrase').value;
+  if (!cipher) { showToast('Please enter ciphertext.', 'error'); return; }
+  if (!pass)   { showToast('Please enter a passphrase.', 'error'); return; }
+
+  document.getElementById('decrypt-result').style.display = 'none';
+  document.getElementById('decrypt-error').style.display  = 'none';
+  const el = document.getElementById('plain-out');
+  while (el.firstChild) el.removeChild(el.firstChild);
+
+  try {
+    const plain = aesDecrypt(cipher, pass);
+    el.appendChild(document.createTextNode(plain));
+    document.getElementById('decrypt-result').style.display = 'block';
+    document.getElementById('decrypt-result').className = 'anim';
+  } catch(e) {
+    document.getElementById('decrypt-error').style.display = 'block';
+  }
+}
+
+function copyText(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function clearEncrypt() {
+  ['enc-message','enc-passphrase'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('encrypt-result').style.display = 'none';
+  document.getElementById('strength-fill').style.width = '0';
+}
+
+function clearDecrypt() {
+  ['dec-ciphertext','dec-passphrase'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('decrypt-result').style.display = 'none';
+  document.getElementById('decrypt-error').style.display  = 'none';
+  const el = document.getElementById('plain-out');
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => { t.className = 'toast'; }, 2500);
+}
+
+/* ── on load: check for #d= ── */
+window.addEventListener('load', () => {
+  const hash = location.hash.slice(1);
+  if (!hash) return;
+  const params = {};
+  hash.split('&').forEach(p => { const eq = p.indexOf('='); if (eq > 0) params[p.slice(0,eq)] = p.slice(eq+1); });
+  if (!params.d) return;
+
+  try {
+    _lockedCipher = fromBase64url(params.d); // stored in JS memory only
+    // Wipe the hash from the address bar so it's not visible
+    history.replaceState(null, '', location.pathname);
+    // Show unlock screen, hide main UI
+    document.getElementById('unlock-screen').style.display = 'block';
+    document.getElementById('main-ui').style.display = 'none';
+    setTimeout(() => document.getElementById('unlock-passphrase').focus(), 100);
+  } catch(e) {
+    // malformed hash — just show normal UI
+  }
+});
+
+// Also handle Enter key on the unlock passphrase field
+document.getElementById('unlock-passphrase').addEventListener('keydown', e => {
+  if (e.key === 'Enter') unlockMessage();
+});
+</script>
 </body>
 </html>
